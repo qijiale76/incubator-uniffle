@@ -168,7 +168,7 @@
                         </systemProperties>
                         <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
                         <useFile>${test.redirectToFile}</useFile>
-                        <argLine>-ea -Xmx3g</argLine>
+                        <argLine>-ea -Xmx3g -Dio.netty.leakDetection.level=advanced</argLine>
                         <failIfNoTests>false</failIfNoTests>
                     </configuration>
                 </plugin>
