@@ -61,7 +61,7 @@ jobs:
     - name: gofmt
       uses: Jerome1337/gofmt-action@v1.0.5
       with:
-        gofmt-path: './deploy/kubernetes'
+        gofmt-path: './deploy/kubernetes/'
         gofmt-flags: '-l -d'
   
   java-11:
