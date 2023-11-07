@@ -56,11 +56,10 @@ jobs:
   gofmt:
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout project
+      uses: actions/checkout@v3
     - name: gofmt
-      uses: Jerome1337/gofmt-action@v1.0.5
-      with:
-        gofmt-path: './'
-        gofmt-flags: '-l -d'
+      uses: iamnotaturtle/auto-gofmt@v1.0
   
   java-11:
     needs: [spotbugs] # delay execution
