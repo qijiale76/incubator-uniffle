@@ -87,6 +87,25 @@ public class SortWriteBuffer<K, V> extends OutputStream {
     records.clear();
   }
 
+  public synchronized void sort(){
+    long startSort = System.currentTimeMillis();
+    records.sort(
+            new Comparator<Record<K>>() {
+              @Override
+              public int compare(Record<K> o1, Record<K> o2) {
+                return comparator.compare(
+                        buffers.get(o1.getKeyIndex()).getBuffer(),
+                        o1.getKeyOffSet(),
+                        o1.getKeyLength(),
+                        buffers.get(o2.getKeyIndex()).getBuffer(),
+                        o2.getKeyOffSet(),
+                        o2.getKeyLength());
+              }
+            });
+    long finishSort = System.currentTimeMillis();
+    sortTime += finishSort - startSort;
+  }
+
   public synchronized byte[] getData() {
     int extraSize = 0;
     for (Record<K> record : records) {
@@ -98,22 +117,8 @@ public class SortWriteBuffer<K, V> extends OutputStream {
     extraSize += WritableUtils.getVIntSize(-1);
     byte[] data = new byte[dataLength + extraSize];
     int offset = 0;
-    long startSort = System.currentTimeMillis();
-    records.sort(
-        new Comparator<Record<K>>() {
-          @Override
-          public int compare(Record<K> o1, Record<K> o2) {
-            return comparator.compare(
-                buffers.get(o1.getKeyIndex()).getBuffer(),
-                o1.getKeyOffSet(),
-                o1.getKeyLength(),
-                buffers.get(o2.getKeyIndex()).getBuffer(),
-                o2.getKeyOffSet(),
-                o2.getKeyLength());
-          }
-        });
+    sort();
     long startCopy = System.currentTimeMillis();
-    sortTime += startCopy - startSort;
 
     for (Record<K> record : records) {
       offset = writeDataInt(data, offset, record.getKeyLength());
