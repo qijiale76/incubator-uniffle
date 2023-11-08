@@ -20,6 +20,7 @@ package org.apache.hadoop.mapred;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 
 import com.google.common.collect.Lists;
@@ -328,56 +329,53 @@ public class SortWriteBuffer<K, V> extends OutputStream {
     }
   }
 
-  public static class RssIterator<K, V> implements RawKeyValueIterator {
+  public static class SortBufferIterator<K, V> implements RawKeyValueIterator {
+    private final SortWriteBuffer<K, V> sortWriteBuffer;
+    private final Iterator<Record<K>> iterator;
+    private final DataInputBuffer keyBuffer = new DataInputBuffer();
+    private final DataInputBuffer valueBuffer = new DataInputBuffer();
+    private SortWriteBuffer.Record<K> currentRecord;
 
-    private final SortWriteBuffer<K, V> buffer;
-    private int currentRecordIndex = 0;
-    private DataInputBuffer key = new DataInputBuffer();
-    private DataInputBuffer value = new DataInputBuffer();
-
-    public RssIterator(SortWriteBuffer<K, V> buffer) {
-      this.buffer = buffer;
+    public SortBufferIterator(SortWriteBuffer<K, V> sortWriteBuffer) {
+      this.sortWriteBuffer = sortWriteBuffer;
+      this.iterator = sortWriteBuffer.records.iterator();
     }
 
     @Override
-    public DataInputBuffer getKey() throws IOException {
-      if (currentRecordIndex < buffer.records.size()) {
-        Record<K> record = buffer.records.get(currentRecordIndex);
-        byte[] data = buffer.getData();
-        key.reset(data, record.getKeyOffSet(), record.getKeyLength());
-        return key;
-      }
-      return null;
+    public DataInputBuffer getKey() {
+      SortWriteBuffer.WrappedBuffer keyWrappedBuffer =
+          sortWriteBuffer.buffers.get(currentRecord.getKeyIndex());
+      byte[] rawData = keyWrappedBuffer.getBuffer();
+      keyBuffer.reset(rawData, currentRecord.getKeyOffSet(), currentRecord.getKeyLength());
+      return keyBuffer;
     }
 
     @Override
-    public DataInputBuffer getValue() throws IOException {
-      if (currentRecordIndex < buffer.records.size()) {
-        Record<K> record = buffer.records.get(currentRecordIndex);
-        byte[] data = buffer.getData();
-        value.reset(data, record.getKeyOffSet() + record.getKeyLength(), record.getValueLength());
-        return value;
-      }
-      return null;
+    public DataInputBuffer getValue() {
+      SortWriteBuffer.WrappedBuffer valueWrappedBuffer =
+          sortWriteBuffer.buffers.get(currentRecord.getKeyIndex());
+      byte[] rawData = valueWrappedBuffer.getBuffer();
+      int valueOffset = currentRecord.getKeyOffSet() + currentRecord.getKeyLength();
+      valueBuffer.reset(rawData, valueOffset, currentRecord.getValueLength());
+      return valueBuffer;
     }
 
     @Override
-    public boolean next() throws IOException {
-      if (currentRecordIndex < buffer.records.size() - 1) {
-        currentRecordIndex++;
+    public boolean next() {
+      if (iterator.hasNext()) {
+        currentRecord = iterator.next();
         return true;
       }
       return false;
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+    }
 
     @Override
     public Progress getProgress() {
-      return null;
+      return new Progress();
     }
   }
-
-  public static class Writer<K extends Object, V extends Object> {}
 }

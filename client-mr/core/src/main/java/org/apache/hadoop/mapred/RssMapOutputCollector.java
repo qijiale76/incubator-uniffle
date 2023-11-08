@@ -185,8 +185,8 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
             sendThreshold,
             maxBufferSize,
             RssMRConfig.toRssConf(rssJobConf),
-            combinerRunner,
-            reporter);
+            combinerRunner
+        );
   }
 
   private Map<Integer, List<ShuffleServerInfo>> createAssignmentMap(Configuration jobConf) {
