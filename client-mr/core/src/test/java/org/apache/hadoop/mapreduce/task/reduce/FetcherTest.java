@@ -367,7 +367,9 @@ public class FetcherTest {
             5,
             0.2f,
             1024000L,
-            new RssConf());
+            new RssConf(),
+            null,
+            null);
 
     for (String key : keysToValues.keySet()) {
       String value = keysToValues.get(key);

@@ -36,9 +36,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.BoundedByteArrayOutputStream;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.serializer.Serializer;
 import org.apache.hadoop.mapreduce.RssMRUtils;
+import org.apache.hadoop.mapreduce.TaskCounter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +98,9 @@ public class SortWriteBufferManager<K, V> {
   private final ExecutorService sendExecutorService;
   private final RssConf rssConf;
   private final Codec codec;
+  private Task.CombinerRunner<K, V> combinerRunner;
+
+  private Task.TaskReporter reporter;
 
   public SortWriteBufferManager(
       long maxMemSize,
@@ -120,7 +126,9 @@ public class SortWriteBufferManager<K, V> {
       int sendThreadNum,
       double sendThreshold,
       long maxBufferSize,
-      RssConf rssConf) {
+      RssConf rssConf,
+      Task.CombinerRunner<K, V> combinerRunner,
+      Task.TaskReporter reporter) {
     this.maxMemSize = maxMemSize;
     this.taskAttemptId = taskAttemptId;
     this.batch = batch;
@@ -146,6 +154,8 @@ public class SortWriteBufferManager<K, V> {
     this.sendExecutorService = ThreadUtils.getDaemonFixedThreadPool(sendThreadNum, "send-thread");
     this.rssConf = rssConf;
     this.codec = Codec.newInstance(rssConf);
+    this.combinerRunner = combinerRunner;
+    this.reporter = reporter;
   }
 
   // todo: Single Buffer should also have its size limit
@@ -231,12 +241,48 @@ public class SortWriteBufferManager<K, V> {
 
   private void prepareBufferForSend(List<ShuffleBlockInfo> shuffleBlocks, SortWriteBuffer buffer) {
     buffers.remove(buffer.getPartitionId());
-    ShuffleBlockInfo block = createShuffleBlock(buffer);
+    ShuffleBlockInfo block = null;
+    if (combinerRunner != null) {
+      try {
+        block = combineAndCreateShuffleBlock(buffer);
+      } catch (Exception e) {
+        block = createShuffleBlock(buffer);
+      }
+    } else {
+      block = createShuffleBlock(buffer);
+    }
     buffer.clear();
     shuffleBlocks.add(block);
     allBlockIds.add(block.getBlockId());
     partitionToBlocks.computeIfAbsent(block.getPartitionId(), key -> Lists.newArrayList());
     partitionToBlocks.get(block.getPartitionId()).add(block.getBlockId());
+  }
+
+  private ShuffleBlockInfo combineAndCreateShuffleBlock(SortWriteBuffer buffer)
+      throws IOException, InterruptedException, ClassNotFoundException {
+
+    final Counters.Counter combineOutputCounter =
+        reporter.getCounter(TaskCounter.COMBINE_OUTPUT_RECORDS);
+    RawKeyValueIterator kvIter = new SortWriteBuffer.RssIterator<K, V>(buffer);
+
+    Task.CombineOutputCollector<K, V> combineCollector =
+        new Task.CombineOutputCollector<K, V>(combineOutputCounter, reporter, new Configuration());
+    int capacity = 1000;
+
+    BoundedByteArrayOutputStream arrayStream = new BoundedByteArrayOutputStream(capacity);
+
+    RssInMemoryWriter<K, V> writer =
+        new RssInMemoryWriter<K, V>(
+            buffer.getPartitionId(), comparator, maxSegmentSize, keySerializer, valSerializer);
+
+    combineCollector.setWriter(writer);
+    // combinerRunner.combine(kvIter, combineCollector);
+
+    // 将outputstream 从原来的 IFileOutputStream 修改为 SortWriteBuffer
+    combinerRunner.combine(kvIter, combineCollector);
+
+    ShuffleBlockInfo block = createShuffleBlock(writer.getBuffer());
+    return block;
   }
 
   private void sendShuffleBlocks(List<ShuffleBlockInfo> shuffleBlocks) {

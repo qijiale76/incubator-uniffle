@@ -23,9 +23,11 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.io.serializer.Serializer;
+import org.apache.hadoop.util.Progress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -325,4 +327,57 @@ public class SortWriteBuffer<K, V> extends OutputStream {
       return size;
     }
   }
+
+  public static class RssIterator<K, V> implements RawKeyValueIterator {
+
+    private final SortWriteBuffer<K, V> buffer;
+    private int currentRecordIndex = 0;
+    private DataInputBuffer key = new DataInputBuffer();
+    private DataInputBuffer value = new DataInputBuffer();
+
+    public RssIterator(SortWriteBuffer<K, V> buffer) {
+      this.buffer = buffer;
+    }
+
+    @Override
+    public DataInputBuffer getKey() throws IOException {
+      if (currentRecordIndex < buffer.records.size()) {
+        Record<K> record = buffer.records.get(currentRecordIndex);
+        byte[] data = buffer.getData();
+        key.reset(data, record.getKeyOffSet(), record.getKeyLength());
+        return key;
+      }
+      return null;
+    }
+
+    @Override
+    public DataInputBuffer getValue() throws IOException {
+      if (currentRecordIndex < buffer.records.size()) {
+        Record<K> record = buffer.records.get(currentRecordIndex);
+        byte[] data = buffer.getData();
+        value.reset(data, record.getKeyOffSet() + record.getKeyLength(), record.getValueLength());
+        return value;
+      }
+      return null;
+    }
+
+    @Override
+    public boolean next() throws IOException {
+      if (currentRecordIndex < buffer.records.size() - 1) {
+        currentRecordIndex++;
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    public void close() throws IOException {}
+
+    @Override
+    public Progress getProgress() {
+      return null;
+    }
+  }
+
+  public static class Writer<K extends Object, V extends Object> {}
 }
