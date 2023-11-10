@@ -595,7 +595,7 @@ public class SortWriteBufferManagerTest {
   static class Reduce extends MapReduceBase
       implements Reducer<Text, IntWritable, Text, IntWritable> {
 
-    public Reduce() {}
+    Reduce() {}
 
     public void reduce(
         Text key,
