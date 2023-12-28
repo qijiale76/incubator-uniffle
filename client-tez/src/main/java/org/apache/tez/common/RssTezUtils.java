@@ -59,9 +59,6 @@ public class RssTezUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(RssTezUtils.class);
 
-  private static final int MAX_ATTEMPT_LENGTH = 6;
-  private static final long MAX_ATTEMPT_ID = (1 << MAX_ATTEMPT_LENGTH) - 1;
-
   public static final String HOST_NAME = "hostname";
 
   public static final String UNDERLINE_DELIMITER = "_";
@@ -161,49 +158,37 @@ public class RssTezUtils {
         partitionId,
         taskAttemptId,
         nextSeqNo);
-    long attemptId =
-        taskAttemptId >> (Constants.PARTITION_ID_MAX_LENGTH + Constants.TASK_ATTEMPT_ID_MAX_LENGTH);
-    if (attemptId < 0 || attemptId > MAX_ATTEMPT_ID) {
+    if (taskAttemptId < 0 || taskAttemptId > Constants.MAX_TASK_ATTEMPT_ID) {
       throw new RssException(
-          "Can't support attemptId [" + attemptId + "], the max value should be " + MAX_ATTEMPT_ID);
+          "Can't support taskAttemptId ["
+              + taskAttemptId
+              + "], the max value should be "
+              + Constants.MAX_TASK_ATTEMPT_ID);
     }
-    long atomicInt = (nextSeqNo << MAX_ATTEMPT_LENGTH) + attemptId;
-    if (atomicInt < 0 || atomicInt > Constants.MAX_SEQUENCE_NO) {
+    if (nextSeqNo < 0 || nextSeqNo > Constants.MAX_SEQUENCE_NO) {
       throw new RssException(
           "Can't support sequence ["
-              + atomicInt
+              + nextSeqNo
               + "], the max value should be "
               + Constants.MAX_SEQUENCE_NO);
     }
     if (partitionId < 0 || partitionId > Constants.MAX_PARTITION_ID) {
       throw new RssException(
-          "Can't support partitionId["
+          "Can't support partitionId ["
               + partitionId
               + "], the max value should be "
               + Constants.MAX_PARTITION_ID);
     }
-    long taskId =
-        taskAttemptId
-            - (attemptId
-                << (Constants.PARTITION_ID_MAX_LENGTH + Constants.TASK_ATTEMPT_ID_MAX_LENGTH));
-
-    if (taskId < 0 || taskId > Constants.MAX_TASK_ATTEMPT_ID) {
-      throw new RssException(
-          "Can't support taskId["
-              + taskId
-              + "], the max value should be "
-              + Constants.MAX_TASK_ATTEMPT_ID);
-    }
-    return (atomicInt << (Constants.PARTITION_ID_MAX_LENGTH + Constants.TASK_ATTEMPT_ID_MAX_LENGTH))
+    return (nextSeqNo << (Constants.PARTITION_ID_MAX_LENGTH + Constants.TASK_ATTEMPT_ID_MAX_LENGTH))
         + (partitionId << Constants.TASK_ATTEMPT_ID_MAX_LENGTH)
-        + taskId;
+        + taskAttemptId;
   }
 
   public static long getTaskAttemptId(long blockId) {
     long mapId = blockId & Constants.MAX_TASK_ATTEMPT_ID;
     long attemptId =
         (blockId >> (Constants.TASK_ATTEMPT_ID_MAX_LENGTH + Constants.PARTITION_ID_MAX_LENGTH))
-            & MAX_ATTEMPT_ID;
+            & Constants.MAX_ATTEMPT_ID;
     return (attemptId << (Constants.TASK_ATTEMPT_ID_MAX_LENGTH + Constants.PARTITION_ID_MAX_LENGTH))
         + mapId;
   }
@@ -298,18 +283,16 @@ public class RssTezUtils {
   }
 
   public static long convertTaskAttemptIdToLong(TezTaskAttemptID taskAttemptID) {
-    long lowBytes = taskAttemptID.getTaskID().getId();
-    if (lowBytes > Constants.MAX_TASK_ATTEMPT_ID) {
+    long lowBytes = taskAttemptID.getId();
+    if (lowBytes > Constants.MAX_ATTEMPT_ID) {
       throw new RssException("TaskAttempt " + taskAttemptID + " low bytes " + lowBytes + " exceed");
     }
-    long highBytes = taskAttemptID.getId();
-    if (highBytes > MAX_ATTEMPT_ID || highBytes < 0) {
+    long highBytes = taskAttemptID.getTaskID().getId();
+    if (highBytes > Constants.MAX_TASK_ID || highBytes < 0) {
       throw new RssException(
           "TaskAttempt " + taskAttemptID + " high bytes " + highBytes + " exceed.");
     }
-    long id =
-        (highBytes << (Constants.TASK_ATTEMPT_ID_MAX_LENGTH + Constants.PARTITION_ID_MAX_LENGTH))
-            + lowBytes;
+    long id = (highBytes << (Constants.MAX_ATTEMPT_LENGTH)) + lowBytes;
     LOG.info("ConvertTaskAttemptIdToLong taskAttemptID:{}, id is {}, .", taskAttemptID, id);
     return id;
   }

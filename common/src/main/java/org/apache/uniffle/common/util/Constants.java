@@ -36,6 +36,10 @@ public final class Constants {
   public static final long MAX_SEQUENCE_NO = (1 << Constants.ATOMIC_INT_MAX_LENGTH) - 1;
   public static final long MAX_PARTITION_ID = (1 << Constants.PARTITION_ID_MAX_LENGTH) - 1;
   public static final long MAX_TASK_ATTEMPT_ID = (1 << Constants.TASK_ATTEMPT_ID_MAX_LENGTH) - 1;
+  public static final int MAX_TASK_LENGTH = 17;
+  public static final int MAX_ATTEMPT_LENGTH = 4;
+  public static final long MAX_TASK_ID = (1 << MAX_TASK_LENGTH) - 1;
+  public static final long MAX_ATTEMPT_ID = (1 << MAX_ATTEMPT_LENGTH) - 1;
   public static final long INVALID_BLOCK_ID = -1L;
   public static final String KEY_SPLIT_CHAR = "/";
   public static final String COMMA_SPLIT_CHAR = ",";
