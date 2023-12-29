@@ -427,7 +427,7 @@ public class WriteBufferManager<K, V> {
     return waitSendBuffers;
   }
 
-  private int getNextSeqNo(int partitionId) {
+  private long getNextSeqNo(int partitionId) {
     partitionToSeqNo.putIfAbsent(partitionId, 0);
     int seqNo = partitionToSeqNo.get(partitionId);
     partitionToSeqNo.put(partitionId, seqNo + 1);

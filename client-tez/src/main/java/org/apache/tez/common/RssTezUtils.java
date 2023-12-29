@@ -152,7 +152,7 @@ public class RssTezUtils {
     return StringUtils.join(ids, "_", 0, 7);
   }
 
-  public static long getBlockId(long partitionId, long taskAttemptId, int nextSeqNo) {
+  public static long getBlockId(long partitionId, long taskAttemptId, long nextSeqNo) {
     LOG.info(
         "GetBlockId, partitionId:{}, taskAttemptId:{}, nextSeqNo:{}",
         partitionId,
@@ -185,12 +185,7 @@ public class RssTezUtils {
   }
 
   public static long getTaskAttemptId(long blockId) {
-    long mapId = blockId & Constants.MAX_TASK_ATTEMPT_ID;
-    long attemptId =
-        (blockId >> (Constants.TASK_ATTEMPT_ID_MAX_LENGTH + Constants.PARTITION_ID_MAX_LENGTH))
-            & Constants.MAX_ATTEMPT_ID;
-    return (attemptId << (Constants.TASK_ATTEMPT_ID_MAX_LENGTH + Constants.PARTITION_ID_MAX_LENGTH))
-        + mapId;
+    return blockId & Constants.MAX_TASK_ATTEMPT_ID;
   }
 
   public static int estimateTaskConcurrency(Configuration jobConf, int mapNum, int reduceNum) {
